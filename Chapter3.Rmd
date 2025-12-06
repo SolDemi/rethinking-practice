@@ -1,0 +1,167 @@
+---
+title: "Untitled"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 0 Prepare
+
+```{r eval=FALSE, include=FALSE}
+# install.packages(c("coda","mvtnorm","devtools","dagitty") )
+# install.packages("cmdstanr", repos = c('https://stan-dev.r-universe.dev', getOption("repos")))
+# install.packages("rstan", repos = c('https://stan-dev.r-universe.dev', getOption("repos")))
+# 
+# devtools::install_github("rmcelreath/rethinking")
+```
+
+```{r}
+pacman::p_load( tidyverse, rethinking )
+```
+
+## 3.5 Homework
+
+```{r 3E}
+p_grid <- seq( from = 0, to = 1, length.out = 1000 )
+prior = rep( 1, 1000 )
+likelihood <- dbinom( 6, size = 9, prob = p_grid)
+posterior <- likelihood * prior
+posterior <- posterior / sum( posterior )
+
+set.seed(100)
+samples <- sample(p_grid, prob = posterior, size = 1e4, replace = T)
+
+# 3E1
+sum(samples < 0.2) / 1e4
+# 3E2
+sum(samples > 0.8 ) / 1e4
+# 3E3
+sum( between( samples, 0.2, 0.8 ) ) / 1e4
+# 3E4
+quantile(samples,0.2)
+# 3E5
+1 - quantile(samples, 0.8 )
+# 3E6
+HPDI(samples,prob = 0.66 )
+# 3E7
+PI( samples, prob = 0.66 )
+quantile( samples, c( .17,.83 ) )
+
+```
+
+```{r 3M}
+set.seed(100)
+# 1
+prior <- rep(1,1000)
+p_grid <- seq( from = 0, to = 1, length.out = 1000)
+likelihood <- dbinom( 8, size = 15, prob = p_grid )
+posterior <- likelihood * prior
+posterior <- posterior / sum(posterior)
+
+plot(p_grid, posterior)
+
+# 2
+samples <- sample( p_grid, 1e4, replace = T, prob = posterior)
+HPDI( samples, 0.9 )
+
+# 3
+w_sim <- rbinom( length(samples), 15, prob = samples)
+print( mean( w_sim == 8 ) )
+
+# 4
+w_sim <- rbinom( length( samples ), 9, prob = samples )
+print( mean( w_sim == 6 ) )
+
+```
+
+```{r 3M5}
+p_grid <- seq( from = 0, to = 1, length.out = 1000)
+prior <- rep( c( 0, 1 ), times = c( sum( p_grid < 0.5 ), sum( p_grid >= 0.5) ) ) # 主要内容
+  # OR：
+prior <- ifelse( p_grid < 0.5, 0, 1)
+likelihood <- dbinom( 8, 15, prob = p_grid )
+posterior2 <- likelihood * prior
+posterior2 <- posterior2 / sum(posterior2)
+samples2 <- sample( p_grid, 1e4, replace = T, prob = posterior2)
+
+  # Compare different priors
+mean( samples2 ) - mean( samples )
+HPDI( samples2, .9 ) - HPDI( samples, .9 )
+
+  # Plot posterior Samples----
+plot( density(samples),
+      main = "Comparison of Posterior Samples",
+      xlab = "p",
+      lwd = 2, col = "blue",
+      ylim = c( 0, 5.5 ) )
+
+lines( density(samples2),
+       lwd = 2, col = "red" )
+
+legend("topright", 
+       legend = c("Uniform prior", "Truncated prior (p>=0.5)"),
+       col = c("blue", "red"),
+       lwd = 2 )
+
+```
+
+-   3M6
+
+    -   Suppose you want to estimate the Earth's proportion of water very precisely. Specifically, you want the 99% percentile interval of the posterior distribution of p to be only 0.05 wide. This means the distance between the upper and lower bound of the interval should be 0.05. How many times will you have to toss the globe to do this?
+
+```{r 3M6}
+
+
+```
+
+```{r 3Hard}
+# Clear
+rm( list = ls() )
+
+
+# 1----
+data( homeworkch3 ) # from package rethinking
+nBoys <- sum(birth1) + sum(birth2)
+nBirs <- length( birth1 )
+
+prior <- rep( 1, 1000 )
+p_grid <- seq( 0, 1, length.out = 1000)
+likelihood <- dbinom( nBoys, nBirs*2, prob = p_grid)
+posterior <- likelihood * prior
+posterior <- posterior / sum(posterior)
+
+plot( posterior ~ p_grid )
+abline( v = 0.5 )
+
+p_grid[ which.max( posterior ) ]
+
+
+# 2----
+samples <- sample(p_grid, 1e4, replace = T, prob = posterior)
+HPDI( samples, c( .5, .89, .97 ) )
+
+
+# 3----
+nBoys_sim <- rbinom(1e4, nBirs*2, prob = samples)
+dens( nBoys_sim )
+abline(v = nBoys, lwd = 2, col = "red")
+
+# 4----
+nBoys_sim <- rbinom( 1e4, nBirs, prob = samples )
+dens( nBoys_sim )
+abline( v = sum( birth1 ), lwd = 2, col = "red" )
+
+# 5----
+  # female first born
+firstF <- birth1 == 0
+
+nBoys_sim <- rbinom( 1e4, sum(firstF), prob = samples )
+nBoys_rea <- sum( birth2[ firstF ] )
+dens( nBoys_sim,adj = .1 )
+abline(v = nBoys_rea, lwd = 2, col = "red")
+
+
+```
+
